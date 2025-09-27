@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FloatChat - AI Ocean Data Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        color: #333;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .header {
+        text-align: center;
+        color: white;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        backdrop-filter: blur(10px);
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+        background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .header p {
+        font-size: 1.2em;
+        opacity: 0.9;
+      }
+
+      .main-content {
+        display: flex;
+        gap: 20px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .chat-panel {
+        flex: 1;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .data-panel {
+        flex: 0 0 400px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        overflow-y: auto;
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: #f8f9fa;
+      }
+
+      .message {
+        margin-bottom: 20px;
+        animation: fadeIn 0.5s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message.user {
+        text-align: right;
+      }
+
+      .message.bot {
+        text-align: left;
+      }
+
+      .message-bubble {
+        display: inline-block;
+        padding: 15px 20px;
+        border-radius: 20px;
+        max-width: 80%;
+        word-wrap: break-word;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .message.user .message-bubble {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .message.bot .message-bubble {
+        background: #e3f2fd;
+        color: #1976d2;
+        border: 1px solid #bbdefb;
+      }
+
+      .chat-input-container {
+        padding: 20px;
+        background: white;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        gap: 10px;
+      }
+
+      .chat-input {
+        flex: 1;
+        padding: 15px;
+        border: 2px solid #e0e0e0;
+        border-radius: 25px;
+        font-size: 16px;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+
+      .chat-input:focus {
+        border-color: #667eea;
+      }
+
+      .send-btn {
+        padding: 15px 25px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: transform 0.2s;
+      }
+
+      .send-btn:hover {
+        transform: scale(1.05);
+      }
+
+      .send-btn:disabled {
+        opacity: 0.6;
+        transform: none;
+        cursor: not-allowed;
+      }
+
+      .demo-queries {
+        margin-bottom: 20px;
+      }
+
+      .demo-queries h3 {
+        color: #333;
+        margin-bottom: 15px;
+        font-size: 1.2em;
+      }
+
+      .demo-query {
+        display: block;
+        width: 100%;
+        padding: 12px 15px;
+        margin-bottom: 8px;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+        text-align: left;
+      }
+
+      .demo-query:hover {
+        background: #e3f2fd;
+        border-color: #2196f3;
+        transform: translateX(5px);
+      }
+
+      .data-stats {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
+      }
+
+      .stat-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .stat-item:last-child {
+        border-bottom: none;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 20px;
+      }
+
+      .loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .status-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 10px 20px;
+        background: #4caf50;
+        color: white;
+        border-radius: 25px;
+        font-size: 14px;
+        z-index: 1000;
+      }
+
+      @media (max-width: 768px) {
+        .main-content {
+          flex-direction: column;
+        }
+
+        .data-panel {
+          flex: none;
+          order: -1;
+        }
+
+        .header h1 {
+          font-size: 2em;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="status-indicator" id="statusIndicator">🌊 ARGO Data Ready</div>
+
+    <div class="container">
+      <div class="header">
+        <h1>🌊 FloatChat</h1>
+        <p>AI-Powered Conversational Interface for ARGO Ocean Data</p>
+      </div>
+
+      <div class="main-content">
+        <div class="chat-panel">
+          <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+              <div class="message-bubble">
+                Welcome to FloatChat! I'm your AI assistant for exploring ARGO
+                oceanographic data. Ask me about temperature, salinity, or
+                oxygen levels in the Indian Ocean region. Try the demo queries
+                on the right to get started! 🌊
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input-container">
+            <input
+              type="text"
+              id="chatInput"
+              class="chat-input"
+              placeholder="Ask about ocean data... (e.g., 'Show me temperature near Mumbai')"
+              autocomplete="off"
+            />
+            <button id="sendBtn" class="send-btn">Send</button>
+          </div>
+        </div>
+
+        <div class="data-panel">
+          <div class="demo-queries">
+            <h3>📋 Demo Queries</h3>
+            <button
+              class="demo-query"
+              onclick="sendDemoQuery('Show me temperature data near Mumbai')"
+            >
+              🌡️ Temperature data near Mumbai
+            </button>
+            <button
+              class="demo-query"
+              onclick="sendDemoQuery('What is the salinity in Bay of Bengal?')"
+            >
+              🧂 Salinity in Bay of Bengal
+            </button>
+            <button
+              class="demo-query"
+              onclick="sendDemoQuery('Recent temperature profiles in Arabian Sea')"
+            >
+              📊 Recent temperatures in Arabian Sea
+            </button>
+            <button
+              class="demo-query"
+              onclick="sendDemoQuery('Show me oxygen levels in Indian Ocean')"
+            >
+              💨 Oxygen levels in Indian Ocean
+            </button>
+            <button
+              class="demo-query"
+              onclick="sendDemoQuery('Temperature data near Chennai coast')"
+            >
+              🏖️ Temperature near Chennai coast
+            </button>
+          </div>
+
+          <div id="dataStats" class="data-stats" style="display: none">
+            <h3>📊 Data Summary</h3>
+            <div id="statsContent"></div>
+          </div>
+
+          <div class="chart-container">
+            <canvas id="dataChart" style="display: none"></canvas>
+            <div
+              id="chartPlaceholder"
+              style="text-align: center; padding: 50px; color: #666"
+            >
+              📈 Charts will appear here when you query data
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentChart = null;
+
+      // DOM elements
+      const chatMessages = document.getElementById("chatMessages");
+      const chatInput = document.getElementById("chatInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const dataStats = document.getElementById("dataStats");
+      const statsContent = document.getElementById("statsContent");
+      const dataChart = document.getElementById("dataChart");
+      const chartPlaceholder = document.getElementById("chartPlaceholder");
+      const statusIndicator = document.getElementById("statusIndicator");
+
+      // Event listeners
+      sendBtn.addEventListener("click", sendMessage);
+      chatInput.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+          sendMessage();
+        }
+      });
+
+      function sendDemoQuery(query) {
+        chatInput.value = query;
+        sendMessage();
+      }
+
+      function addMessage(content, isUser = false, isLoading = false) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isUser ? "user" : "bot"}`;
+
+        if (isLoading) {
+          messageDiv.innerHTML = `
+                    <div class="message-bubble">
+                        <div class="loading">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                `;
+        } else {
+          messageDiv.innerHTML = `<div class="message-bubble">${content}</div>`;
+        }
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return messageDiv;
+      }
+
+      async function sendMessage() {
+        const query = chatInput.value.trim();
+        if (!query) return;
+
+        // Add user message
+        addMessage(query, true);
+        chatInput.value = "";
+        sendBtn.disabled = true;
+
+        // Add loading message
+        const loadingMsg = addMessage("", false, true);
+
+        // Update status
+        statusIndicator.textContent = "🔄 Processing query...";
+        statusIndicator.style.background = "#ff9800";
+
+        try {
+          const response = await fetch("/query", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query: query }),
+          });
+
+          const data = await response.json();
+
+          // Remove loading message
+          loadingMsg.remove();
+
+          if (data.error) {
+            addMessage(`Sorry, I encountered an error: ${data.error}`);
+          } else {
+            // Add response message
+            addMessage(data.response.replace(/\n/g, "<br>"));
+
+            // Update data stats
+            if (data.data) {
+              updateDataStats(data.data);
+            }
+
+            // Update chart
+            if (data.chart_data) {
+              updateChart(data.chart_data, data.data?.parameter || "Value");
+            }
+          }
+
+          // Update status
+          statusIndicator.textContent = "✅ Query completed";
+          statusIndicator.style.background = "#4caf50";
+        } catch (error) {
+          loadingMsg.remove();
+          addMessage(
+            `Sorry, I couldn't process your request. Please try again.`
+          );
+          statusIndicator.textContent = "❌ Error occurred";
+          statusIndicator.style.background = "#f44336";
+        }
+
+        sendBtn.disabled = false;
+
+        // Reset status after 3 seconds
+        setTimeout(() => {
+          statusIndicator.textContent = "🌊 ARGO Data Ready";
+          statusIndicator.style.background = "#4caf50";
+        }, 3000);
+      }
+
+      function updateDataStats(data) {
+        dataStats.style.display = "block";
+        statsContent.innerHTML = `
+                <div class="stat-item">
+                    <strong>Profiles Found:</strong>
+                    <span>${data.n_profiles}</span>
+                </div>
+                <div class="stat-item">
+                    <strong>Parameter:</strong>
+                    <span>${data.parameter}</span>
+                </div>
+                <div class="stat-item">
+                    <strong>Region:</strong>
+                    <span>${data.region}</span>
+                </div>
+            `;
+      }
+
+      function updateChart(chartData, parameter) {
+        if (!chartData || chartData.length === 0) return;
+
+        chartPlaceholder.style.display = "none";
+        dataChart.style.display = "block";
+
+        // Destroy existing chart
+        if (currentChart) {
+          currentChart.destroy();
+        }
+
+        const ctx = dataChart.getContext("2d");
+
+        // Prepare data for depth profile
+        const labels = chartData.map((d) => `${d.pressure.toFixed(0)} dbar`);
+        const values = chartData.map((d) => d.value);
+
+        currentChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: `${parameter} Profile`,
+                data: values,
+                borderColor: "#667eea",
+                backgroundColor: "rgba(102, 126, 234, 0.1)",
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              title: {
+                display: true,
+                text: `${parameter} vs Pressure`,
+              },
+            },
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: "Pressure (dbar)",
+                },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: parameter,
+                },
+              },
+            },
+            elements: {
+              point: {
+                radius: 4,
+                hoverRadius: 6,
+              },
+            },
+          },
+        });
+      }
+
+      // Initialize
+      console.log("🌊 FloatChat MVP initialized");
+    </script>
+  </body>
+</html>
